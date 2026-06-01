@@ -65,3 +65,35 @@ Tudo funciona no mundo perfeito das simulações. Hora de ir para a realidade.
     [ ] Passo 3: Desligar o script Simulador da Fase 1, mas manter o Receptor da Fase 2 rodando.
 
     Teste Final: Pegar o seu celular, desligar o Wi-Fi e ligar novamente. Conectar e desconectar da rede. Caminhar pela casa até o sinal cair (se tiver mais de um ponto de acesso). Você deverá ver os dados reais pipocando no seu painel e os ponteiros se mexendo.
+
+
+# Pipeline
+
+
+Gerador Syslog
+        ↓ UDP/514
+Servidor Syslog
+        ↓
+Regex
+        ↓
+Extração dos campos
+(timestamp, router, mac, event)
+        ↓
+Hash SHA-256(mac + salt diário)
+        ↓
+device_id anonimizado
+        ↓
+Grava evento no SQLite
+(events)
+        ↓
+Atualiza matriz de adjacência
+        ↓
+Processa sessão
+(associated/disassociated)
+        ↓
+Calcula permanência
+        ↓
+Grava permanência no SQLite
+(stay_times)
+        ↓
+Exibe estatísticas na tela
