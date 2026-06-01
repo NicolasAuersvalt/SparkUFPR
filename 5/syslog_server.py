@@ -276,8 +276,9 @@ try:
 
         event_counter += 1
 
-        if event_counter % 100 == 0:
-            conn.commit()
+        #if event_counter % 100 == 0:
+        #    conn.commit()
+        conn.commit()
 
         update_transition(
             device_id,
