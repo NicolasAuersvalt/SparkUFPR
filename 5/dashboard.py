@@ -109,7 +109,7 @@ if not transitions.empty:
 
     st.dataframe(
         flows,
-        use_container_width=True
+        width="stretch"
     )
 
 st.subheader(
@@ -202,7 +202,7 @@ if not transitions.empty:
 
     st.plotly_chart(
         fig,
-        use_container_width=True
+        width="stretch"
     )
 
 
@@ -285,5 +285,5 @@ st.subheader("Últimos Eventos")
 
 st.dataframe(
     events.tail(50),
-    use_container_width=True
+    width="stretch"
 )

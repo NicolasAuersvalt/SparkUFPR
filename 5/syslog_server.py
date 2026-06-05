@@ -2,6 +2,7 @@ import sqlite3
 import socket
 import re
 import hashlib
+from datetime import timedelta
 from datetime import datetime
 
 # =========================
@@ -90,11 +91,64 @@ CREATE TABLE IF NOT EXISTS transitions (
 )
 """)
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS active_devices (
+    device_id TEXT PRIMARY KEY,
+    router TEXT,
+    last_seen TEXT
+)
+""")
+
 conn.commit()
 
 # =========================
 # HASH DO MAC
 # =========================
+
+def cleanup_stale_devices():
+
+    limit = (
+        datetime.now() -
+        timedelta(minutes=15)
+    )
+
+    cursor.execute("""
+    DELETE FROM active_devices
+    WHERE last_seen < ?
+    """, (
+        limit.isoformat(),
+    ))
+
+def update_active_devices(
+    device_id,
+    router,
+    event_time,
+    event
+):
+
+    if event == "associated":
+
+        cursor.execute("""
+        INSERT OR REPLACE INTO active_devices (
+            device_id,
+            router,
+            last_seen
+        )
+        VALUES (?, ?, ?)
+        """, (
+            device_id,
+            router,
+            event_time.isoformat()
+        ))
+
+    elif event == "disassociated":
+
+        cursor.execute("""
+        DELETE FROM active_devices
+        WHERE device_id = ?
+        """, (
+            device_id,
+        ))
 
 def anonymize_mac(mac):
     daily_salt = datetime.now().strftime("%Y-%m-%d")
@@ -158,7 +212,7 @@ def update_transition(
                 current_router
             ))
 
-            conn.commit()
+            #conn.commit()
 
             print(
                 f"TRANSIÇÃO: "
@@ -223,7 +277,7 @@ def process_session(
                 minutes
             ))
 
-            conn.commit()
+            #conn.commit()
 
             del active_sessions[device_id]
 
@@ -272,6 +326,7 @@ print("Servidor Syslog iniciado na porta 514")
 
 event_counter = 0
 
+
 try:
 
     while True:
@@ -299,6 +354,13 @@ try:
 
         device_id = anonymize_mac(mac)
 
+        update_active_devices(
+            device_id,
+            router,
+            event_time,
+            event
+        )
+
         cursor.execute("""
         INSERT INTO events (
             timestamp,
@@ -316,9 +378,8 @@ try:
 
         event_counter += 1
 
-        #if event_counter % 100 == 0:
-        #    conn.commit()
-        conn.commit()
+        if event_counter % 100 == 0:
+            cleanup_stale_devices()
 
         if event == "associated":
 
@@ -334,6 +395,8 @@ try:
             event,
             event_time
         )
+        conn.commit()
+        
 
         del mac
 
@@ -350,6 +413,6 @@ except KeyboardInterrupt:
 
     print("\nEncerrando servidor...")
 
-    conn.commit()
+    #conn.commit()
     conn.close()
     sock.close()

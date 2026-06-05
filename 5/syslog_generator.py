@@ -28,6 +28,11 @@ DEVICE_POOL = [
     generate_mac()
     for _ in range(50)
 ]
+# dispositivos fantasmas
+GHOST_DEVICES = [
+    generate_mac()
+    for _ in range(5)
+]
 
 def timestamp():
     return datetime.now().strftime("%b %d %H:%M:%S")
@@ -39,6 +44,10 @@ def send_syslog(message):
     )
 
 while True:
+
+    # ======================
+    # Tráfego normal
+    # ======================
 
     mac = random.choice(DEVICE_POOL)
 
@@ -54,5 +63,28 @@ while True:
     send_syslog(msg)
 
     print(msg)
+
+    # ======================
+    # Fantasmas (5%)
+    # ======================
+
+    if random.random() < 0.5:
+
+        ghost = random.choice(GHOST_DEVICES)
+
+        ghost_router = random.choice(ROUTERS)
+
+        ghost_msg = (
+            f"<14>{timestamp()} "
+            f"{ghost_router} hostapd: "
+            f"{INTERFACE}: STA {ghost} "
+            f"IEEE 802.11: associated"
+        )
+
+        send_syslog(ghost_msg)
+
+        print(
+            f"[GHOST] {ghost} entrou em {ghost_router}"
+        )
 
     time.sleep(1)

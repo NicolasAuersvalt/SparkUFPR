@@ -1,99 +1,82 @@
-# SparkUFPR
+# Mobile Crowd Sensing via Logs Wi-Fi
 
-Fase 1: O Simulador (Mock de Dados)
+## 1. Objetivo
 
-Antes de lidar com roteadores reais, você precisa de um gerador de caos controlado.
+Este projeto implementa uma plataforma de Mobile Crowd Sensing baseada em eventos de associação e desassociação Wi-Fi capturados via Syslog.
 
-    [ ] Passo 1: Criar um script Python que gere logs Syslog falsos. Ele deve cuspir strings no formato exato que um roteador comercial usa quando alguém conecta/desconecta (ex: <14>Jan 1 00:00:00 router1 hostapd: wlan0: STA aa:bb:cc:dd:ee:ff IEEE 802.11: associated).
+O sistema permite:
 
-    [ ] Passo 2: Fazer esse script enviar esses logs via protocolo UDP para a porta 514 do localhost.
+* Estimar ocupação de ambientes.
+* Medir tempo de permanência.
+* Detectar fluxo entre pontos de acesso.
+* Construir matrizes origem-destino.
+* Gerar recomendações logísticas baseadas nos fluxos observados.
+* Visualizar métricas em tempo real através de dashboard Streamlit.
 
-    Teste: Usar o comando nc -u -l 514 (Netcat) no seu terminal Linux para ver se as mensagens falsas estão chegando corretamente.
+---
 
-Fase 2: O Receptor (Ingestão)
+# 2. Arquitetura
 
-Agora seu sistema precisa "ouvir" esses dados.
+O sistema é composto por três módulos.
 
-    [ ] Passo 1: Escrever um servidor UDP simples em Python (usando a biblioteca nativa socket) que fique escutando a porta 514.
+## 2.1 Syslog Generator
 
-    [ ] Passo 2: Aplicar expressões regulares (Regex) para extrair exatamente 3 coisas da string recebida: Timestamp, Endereço MAC e ID do Roteador/Ponto.
+Responsável por simular dispositivos móveis circulando entre roteadores.
 
-    [ ] Passo 3: Aplicar imediatamente uma função de hash (como hashlib.sha256) no Endereço MAC + um "salt" diário, descartando o MAC real para garantir privacidade.
+Funções:
 
-    Teste: Rodar o Simulador (Fase 1) e o Receptor juntos. O console do Receptor deve imprimir apenas dicionários ou JSONs limpos e anonimizados.
+* Geração de MACs aleatórios.
+* Simulação de associação Wi-Fi.
+* Simulação de dispositivos fantasmas.
+* Envio dos logs para o servidor Syslog.
 
-Fase 3: Estrutura de Dados e Lógica (O "Cérebro")
+Saída:
 
-Aqui é onde a mágica acontece. Você precisa transformar os logs soltos em um fluxo lógico.
+```text
+<14>Jun 05 12:00:00 router1 hostapd: wlan0: STA aa:bb:cc:dd:ee:ff IEEE 802.11: associated
+```
 
-    [ ] Passo 1: Modelar a estrutura. Uma matriz de adjacência ou uma lista de transições funciona bem para representar os caminhos entre os roteadores.
+---
 
-    [ ] Passo 2: Criar a lógica de tempo de permanência. Se o Hash X conectou no Roteador A às 10:00 e desconectou às 10:45, salvar o delta (45 minutos).
+## 2.2 Syslog Server
 
-    [ ] Passo 3: Armazenar esses dados processados. Para não complicar no início, use um banco de dados em memória ou um SQLite. Para produção, um banco de séries temporais como o InfluxDB é o ideal.
+Responsável por:
 
-    Teste: Injetar no sistema um MAC simulado que "pula" do Roteador 1 para o 2 e depois para o 3. Fazer uma query (consulta) no banco e confirmar se o caminho e o tempo batem com o que você simulou.
+* Receber logs UDP.
+* Anonimizar dispositivos.
+* Armazenar eventos.
+* Calcular permanência.
+* Calcular transições.
+* Atualizar ocupação atual.
 
-Fase 4: O Dashboard (Visualização)
+Tecnologias:
 
-Agora sim, dar vida aos dados.
+* Python
+* Socket UDP
+* SQLite
 
-    [ ] Passo 1: Escolher a ferramenta. Você tem dois caminhos rápidos:
+Porta utilizada:
 
-        Opção A: Usar Grafana conectado ao seu banco de dados (zero código de interface, tudo via configuração).
+```text
+514/UDP
+```
 
-        Opção B: Subir um painel rápido usando Streamlit em Python (ótimo se você quiser programar os gráficos na mão e customizar as regras de logística).
+---
 
-    [ ] Passo 2: Criar as 3 métricas principais:
+## 2.3 Dashboard
 
-        Um número grande com o "Total de Visitantes Ativos Agora".
+Painel desenvolvido em Streamlit.
 
-        Um gráfico de barras ou velocímetro com o "Tempo Médio de Permanência".
+Responsável por:
 
-        Um grafo direcionado (ou diagrama de Sankey) mostrando a espessura do fluxo entre os pontos A, B e C.
+* Exibir KPIs.
+* Exibir gráficos.
+* Mostrar fluxos.
+* Exibir recomendações logísticas.
 
-    Teste: Aumentar a velocidade do seu Simulador (Fase 1) para gerar 100 conexões por segundo. O Dashboard deve atualizar em tempo real sem travar.
+Tecnologias:
 
-Fase 5: O Teste de Fogo (Sua Rede Local)
-
-Tudo funciona no mundo perfeito das simulações. Hora de ir para a realidade.
-
-    [ ] Passo 1: Acessar o painel de administração do roteador Wi-Fi da sua casa.
-
-    [ ] Passo 2: Procurar pela aba de "System Log", "Syslog Server" ou "Log Settings" e configurar para enviar os logs para o IP local da sua máquina de desenvolvimento (ex: 192.168.1.100), na porta UDP 514.
-
-    [ ] Passo 3: Desligar o script Simulador da Fase 1, mas manter o Receptor da Fase 2 rodando.
-
-    Teste Final: Pegar o seu celular, desligar o Wi-Fi e ligar novamente. Conectar e desconectar da rede. Caminhar pela casa até o sinal cair (se tiver mais de um ponto de acesso). Você deverá ver os dados reais pipocando no seu painel e os ponteiros se mexendo.
-
-
-# Pipeline
-
-
-Gerador Syslog
-        ↓ UDP/514
-Servidor Syslog
-        ↓
-Regex
-        ↓
-Extração dos campos
-(timestamp, router, mac, event)
-        ↓
-Hash SHA-256(mac + salt diário)
-        ↓
-device_id anonimizado
-        ↓
-Grava evento no SQLite
-(events)
-        ↓
-Atualiza matriz de adjacência
-        ↓
-Processa sessão
-(associated/disassociated)
-        ↓
-Calcula permanência
-        ↓
-Grava permanência no SQLite
-(stay_times)
-        ↓
-Exibe estatísticas na tela
+* Streamlit
+* Pandas
+* Plotly
+* SQLite
