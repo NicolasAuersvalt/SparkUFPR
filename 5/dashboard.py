@@ -3,6 +3,30 @@ import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
 
+@st.cache_resource
+def start_background_services():
+    st.toast("Iniciando serviços Syslog em background...", icon="⚙️")
+    
+    # Inicia o Servidor e o Gerador usando subprocess
+    server_process = subprocess.Popen(["python", "syslog_server.py"])
+    
+    # Dá 2 segundos para o servidor abrir a porta antes do gerador começar
+    time.sleep(2) 
+    
+    generator_process = subprocess.Popen(["python", "syslog_generator.py"])
+    
+    # Garante que os processos sejam mortos se o Streamlit for desligado
+    def cleanup():
+        server_process.kill()
+        generator_process.kill()
+        
+    atexit.register(cleanup)
+    
+    return True
+
+# Chama a função. O Streamlit garante que ela só roda na primeira vez.
+_ = start_background_services()
+
 # ==========================================
 # CONFIGURAÇÃO DA PÁGINA
 # ==========================================
