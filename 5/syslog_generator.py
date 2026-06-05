@@ -65,6 +65,22 @@ while True:
     print(msg)
 
     # ======================
+    # Simular Saídas (Desassociação)
+    # ======================
+    if random.random() < 0.2:  # 20% de chance de alguém ir embora
+        mac_out = random.choice(DEVICE_POOL)
+        router_out = random.choice(ROUTERS)
+        
+        msg_out = (
+            f"<14>{timestamp()} "
+            f"{router_out} hostapd: "
+            f"{INTERFACE}: STA {mac_out} "
+            f"IEEE 802.11: disassociated"
+        )
+        send_syslog(msg_out)
+        print(f"[SAÍDA] {mac_out} foi embora de {router_out}")
+
+    # ======================
     # Fantasmas (5%)
     # ======================
 

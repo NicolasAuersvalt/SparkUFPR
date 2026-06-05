@@ -106,18 +106,35 @@ conn.commit()
 # =========================
 
 def cleanup_stale_devices():
+    limit = datetime.now() - timedelta(minutes=15)
 
-    limit = (
-        datetime.now() -
-        timedelta(minutes=15)
-    )
-
+    # 1. Deleta do banco de ativos
     cursor.execute("""
     DELETE FROM active_devices
     WHERE last_seen < ?
-    """, (
-        limit.isoformat(),
-    ))
+    """, (limit.isoformat(),))
+
+    # 2. Fecha a sessão dos inativos para aparecer no Dashboard
+    stale_devices = []
+    
+    for d_id, session in list(active_sessions.items()):
+        if session["start"] < limit:
+            exit_time = datetime.now()
+            duration = (exit_time - session["start"]).total_seconds() / 60
+            
+            # Grava na tabela stay_times
+            cursor.execute("""
+            INSERT INTO stay_times (device_id, router, entry_time, exit_time, duration_minutes)
+            VALUES (?, ?, ?, ?, ?)
+            """, (d_id, session["router"], session["start"].isoformat(), exit_time.isoformat(), duration))
+            
+            stale_devices.append(d_id)
+
+    # 3. Limpa da memória (Memory Leak resolvido)
+    for d in stale_devices:
+        del active_sessions[d]
+        if d in last_seen:
+            del last_seen[d]
 
 def update_active_devices(
     device_id,
