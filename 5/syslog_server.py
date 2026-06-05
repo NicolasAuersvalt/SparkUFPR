@@ -80,6 +80,16 @@ CREATE TABLE IF NOT EXISTS stay_times (
 )
 """)
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS transitions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT,
+    device_id TEXT,
+    from_router TEXT,
+    to_router TEXT
+)
+""")
+
 conn.commit()
 
 # =========================
@@ -110,7 +120,11 @@ def parse_timestamp(ts):
 # ATUALIZA TRANSIÇÕES
 # =========================
 
-def update_transition(device_id, current_router):
+def update_transition(
+    device_id,
+    current_router,
+    event_time
+):
 
     previous_router = last_seen.get(device_id)
 
@@ -119,11 +133,37 @@ def update_transition(device_id, current_router):
         if (
             previous_router in routers
             and current_router in routers
+            and previous_router != current_router
         ):
+
             origem = routers[previous_router]
             destino = routers[current_router]
 
+            # Matriz em memória
             adj_matrix[origem][destino] += 1
+
+            # Persistência da transição
+            cursor.execute("""
+            INSERT INTO transitions (
+                timestamp,
+                device_id,
+                from_router,
+                to_router
+            )
+            VALUES (?, ?, ?, ?)
+            """, (
+                event_time.isoformat(),
+                device_id,
+                previous_router,
+                current_router
+            ))
+
+            conn.commit()
+
+            print(
+                f"TRANSIÇÃO: "
+                f"{previous_router} -> {current_router}"
+            )
 
     last_seen[device_id] = current_router
 
@@ -280,10 +320,13 @@ try:
         #    conn.commit()
         conn.commit()
 
-        update_transition(
-            device_id,
-            router
-        )
+        if event == "associated":
+
+            update_transition(
+                device_id,
+                router,
+                event_time
+            )
 
         process_session(
             device_id,
